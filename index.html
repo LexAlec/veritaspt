@@ -130,17 +130,23 @@
     <div id="sa"></div><div id="ea"></div><div id="ra"></div>
   </div>
   <div class="panel" id="ph"><div id="hl"></div></div>
-  <div class="footer">VeritasPT · Powered by Claude AI<br>Os resultados são indicativos e não substituem verificação jornalística profissional</div>
+  <div class="footer">VeritasPT · Powered by Gemini AI<br>Os resultados são indicativos e não substituem verificação jornalística profissional</div>
 </div>
 <script>
+const GEMINI_KEY = 'AIzaSyB0og9qQujwDvFGX4jJAUETlwJvqZF2lnQ';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+
 const hist=[];
 const PTS=['RTP','Público','Observador','JN','Expresso','CM','Sapo','TSF','SIC','TVI24'];
 const EXS=['TAP vai ser privatizada em 2025','Portugal tem a maior dívida da Europa','IA vai substituir 40% dos empregos em Portugal','O NIF deixa de ser obrigatório na fatura'];
+
 const ec=document.getElementById('ec');
 EXS.forEach(e=>{const d=document.createElement('div');d.className='echip';d.textContent=e;d.onclick=()=>document.getElementById('ni').value=e;ec.appendChild(d);});
+
 function sw(t){document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',(i===0&&t==='v')||(i===1&&t==='h')));document.getElementById('pv').classList.toggle('active',t==='v');document.getElementById('ph').classList.toggle('active',t==='h');if(t==='h')rh();}
 function pk(v){const lv=(v||'').toLowerCase();if(lv.includes('verdade')||lv.includes('true')||lv.includes('confirmad'))return'true';if(lv.includes('falso')||lv.includes('false')||lv.includes('incorret'))return'false';if(lv.includes('enganoso')||lv.includes('mislead')||lv.includes('parcial'))return'misleading';return'unverified';}
 function sc(s){return s>=70?'#3db87a':s>=40?'#d4a020':'#e05555'}
+
 function renderR(r,q){
   const k=pk(r.verdict),fill=Math.max(2,Math.min(100,r.score));
   const facts=(r.key_facts||[]).map(f=>`<div class="rcfact"><div class="rcfmark"><svg viewBox="0 0 10 10"><polyline points="2,5 4,7 8,3"/></svg></div><span>${f}</span></div>`).join('');
@@ -150,9 +156,11 @@ function renderR(r,q){
   const ql=q.length>72?q.slice(0,72)+'…':q;
   return`<div class="rcard"><div class="racbar rab-${k}"></div><div class="rctop"><div><div class="rclbl">VEREDITO</div><span class="rcpill rcp-${k}">${r.verdict}</span><div class="rchead">"${ql}"</div></div><div class="rcscore-wrap"><div class="rcnum">${r.score}</div><div class="rcsub">CREDIBILIDADE</div><div class="rcbar"><div class="rcfill" style="width:${fill}%;background:${sc(r.score)}"></div></div></div></div><div class="rcbody"><div class="rcsec">ANÁLISE</div><p class="rcanalysis">${r.summary}</p>${r.context?`<p class="rcctx">${r.context}</p>`:''}${facts?`<div class="rcdiv"></div><div class="rcsec">FACTOS VERIFICADOS</div><div class="rcfacts">${facts}</div>`:''}${srcs?`<div class="rcdiv"></div><div class="rcsec">FONTES CONSULTADAS</div><div class="rcsrcs">${srcs}</div>`:''}<div class="rcdiv"></div><div class="rcsec">FONTES PORTUGUESAS PESQUISADAS</div><div class="rcpt">${ptags}</div></div><div class="rcshare"><span class="rcslbl">PARTILHAR RESULTADO</span><div class="rcsbtns"><button class="rcsbtn" onclick="window.open('https://api.whatsapp.com/send?text=${st}','_blank')">WhatsApp</button><button class="rcsbtn" onclick="window.open('https://twitter.com/intent/tweet?text=${st}','_blank')">X / Twitter</button><button class="rcsbtn" onclick="window.open('https://www.linkedin.com/sharing/share-offsite/?summary=${st}','_blank')">LinkedIn</button></div></div></div>`;
 }
+
 function rh(){const el=document.getElementById('hl');if(!hist.length){el.innerHTML='<div class="hempty">Sem verificações ainda.<br>Verifica uma notícia para criar histórico.</div>';return;}el.innerHTML=hist.slice().reverse().map((h,i)=>`<div class="hitem" onclick="fh(${hist.length-1-i})"><div class="hdot hd-${pk(h.verdict)}"></div><div class="htxt">${h.q}</div><div class="hsc">${h.score}/100</div><div class="htm">${h.t}</div></div>`).join('');}
 function fh(i){const h=hist[i];sw('v');document.getElementById('ni').value=h.q;document.getElementById('ra').innerHTML=renderR(h.r,h.q);}
 function uhc(){document.getElementById('hc').textContent=hist.length?`(${hist.length})`:''}
+
 async function verify(){
   const q=document.getElementById('ni').value.trim();if(!q)return;
   const btn=document.getElementById('bv'),sa=document.getElementById('sa'),ra=document.getElementById('ra'),ea=document.getElementById('ea');
@@ -160,14 +168,30 @@ async function verify(){
   const msgs=['A pesquisar RTP, Público, Observador…','A cruzar fontes nacionais e internacionais…','A calcular índice de credibilidade…'];
   let mi=0;sa.innerHTML=`<div class="stwrap"><div class="pring"></div><span id="sm">${msgs[0]}</span></div>`;
   const si=setInterval(()=>{mi++;const e=document.getElementById('sm');if(e&&msgs[mi])e.textContent=msgs[mi];},2500);
-  const sys=`És o motor VeritasPT, especializado em fact-checking de notícias portuguesas. Prioriza fontes: RTP, Público, Observador, JN, Expresso, CM, TSF, SIC, TVI24. Responde SEMPRE em português de Portugal.\nResponde APENAS com JSON válido sem markdown:\n{"verdict":"Verdade|Falso|Enganoso|Não verificável","score":<0-100>,"summary":"<2-3 frases>","key_facts":["<facto>","<facto>","<facto>"],"sources":[{"title":"<nome>","url":"<url>"}],"context":"<nuance>"}`;
+
+  const prompt = `És um motor de verificação de notícias portuguesas. Analisa a seguinte notícia/afirmação com base no teu conhecimento e responde APENAS com JSON válido, sem markdown, sem texto extra:
+
+Notícia: "${q}"
+
+Fontes a priorizar: RTP, Público, Observador, JN, Expresso, CM, TSF, SIC, TVI24.
+
+Responde APENAS com este JSON:
+{"verdict":"Verdade|Falso|Enganoso|Não verificável","score":<0-100>,"summary":"<2-3 frases em português de Portugal>","key_facts":["<facto 1>","<facto 2>","<facto 3>"],"sources":[{"title":"<nome da fonte>","url":"<url se conheceres>"}],"context":"<nuance importante em 1 frase>"}`;
+
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:`Verifica em português: "${q}"`}]})});
+    const res=await fetch(GEMINI_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:1000}})
+    });
     clearInterval(si);sa.innerHTML='';
     if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'Erro na API');}
-    const data=await res.json();let txt='';for(const b of data.content){if(b.type==='text'){txt=b.text;break;}}
-    const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
-    const now=new Date();hist.push({q,r,verdict:r.verdict,score:r.score,t:now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')});
+    const data=await res.json();
+    let txt=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    txt=txt.replace(/```json|```/g,'').trim();
+    const r=JSON.parse(txt);
+    const now=new Date();
+    hist.push({q,r,verdict:r.verdict,score:r.score,t:now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')});
     uhc();btn.disabled=false;ra.innerHTML=renderR(r,q);
   }catch(err){clearInterval(si);sa.innerHTML='';btn.disabled=false;ea.innerHTML=`<div class="errbox">Erro: ${err.message}</div>`;}
 }
